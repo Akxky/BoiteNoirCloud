@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "615036014175",
+    "project_id": "boitenoirecloud",
+    "storage_bucket": "boitenoirecloud.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615036014175:android:7aed429e7d8622257d15ea",
+        "android_client_info": {
+          "package_name": "com.example.boite_noire_cloud"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPjccAxCdRRbeDM2RI5zA3M76WybcSILQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
