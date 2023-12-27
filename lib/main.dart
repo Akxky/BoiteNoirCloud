@@ -5,6 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 
+import 'dart:async';
+import 'package:firebase_admin_interop/firebase_admin_interop.dart' as admin;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); //connecte flutter à firebase
@@ -20,7 +23,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'FlutterFirebase Demo',
       theme: ThemeData(
-        
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -39,13 +41,13 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
   PlatformFile? fichierChoisi;
+
   Future choisirFichier() async {
     final result = await FilePicker.platform.pickFiles();
     if(result == null) return;
 
-    setState((){
+    setState(() {
       fichierChoisi = result.files.first;
     });
   }
@@ -58,9 +60,27 @@ class _MyHomePageState extends State<MyHomePage> {
     ref.putFile(fichier);
   }
 
+  Future<void> deleteFilesAfterTenMinutes(String directoryPath) async {
+    // Obtenir une référence au répertoire dans Firebase Storage
+    final storageReference = FirebaseStorage.instance.ref().child(directoryPath);
+
+    // Obtenir la liste de tous les fichiers dans le répertoire
+    final ListResult listResult = await storageReference.listAll();
+
+    // Calculer la date et l'heure d'il y a 10 minutes
+    final tenMinutesAgo = DateTime.now().subtract(Duration(minutes: 10));
+
+    // Parcourir la liste des fichiers et supprimer ceux qui datent de plus de 10 minutes
+    for (final item in listResult.items) {
+      final metadata = await item.getMetadata();
+      if (metadata.timeCreated.isBefore(tenMinutesAgo)) {
+        await item.delete();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    
     return Scaffold(
       appBar: AppBar(   
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -87,6 +107,9 @@ class _MyHomePageState extends State<MyHomePage> {
               onPressed: envoyerFichier,
               child: const Text('Envoyer'),  
             ),
+            PeriodicTaskRunner(task: () async {
+              await deleteFilesAfterTenMinutes('images');
+            }),
           ],
         ),
       ),
@@ -96,5 +119,24 @@ class _MyHomePageState extends State<MyHomePage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+}
+
+class PeriodicTaskRunner extends StatefulWidget {
+  final Function task;
+
+  const PeriodicTaskRunner({Key? key, required this.task}) : super(key: key);
+
+  @override
+  _PeriodicTaskRunnerState createState() => _PeriodicTaskRunnerState();
+}
+
+class _PeriodicTaskRunnerState extends State<PeriodicTaskRunner> {
+  @override
+  Widget build(BuildContext context) {
+    return TimerBuilder.periodic(Duration(minutes: 1), (Timer t) {
+      widget.task();
+      return Container(); // Retourne un widget vide
+    });
   }
 }
