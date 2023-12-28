@@ -5,6 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 
+import 'package:timer_builder/timer_builder.dart';
+import 'dart:async';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); //connecte flutter à firebase
@@ -55,7 +58,66 @@ class _MyHomePageState extends State<MyHomePage> {
     final fichier = File(fichierChoisi!.path!);
 
     final ref = FirebaseStorage.instance.ref().child(path);
-    ref.putFile(fichier);
+    await ref.putFile(fichier);
+  }
+
+  List<PlatformFile> fichiersChoisis = []; // Nouveau
+  // Nouveau
+  Future<void> choisirFichiers() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    if (result == null) return;
+    setState(() {
+      fichiersChoisis = result.files;  
+    });
+  }
+
+  Future<void> envoyerFichiers() async {
+  if (fichiersChoisis.isEmpty) return;
+
+  final List<Future<void>> futures = [];
+
+  for (final fichier in fichiersChoisis) {
+    final path = 'images/${fichier.name}';
+    final fichierAEnvoyer = File(fichier.path!);
+
+    final ref = FirebaseStorage.instance.ref().child(path);
+    futures.add(ref.putFile(fichierAEnvoyer));
+  }
+
+    await Future.wait(futures); // Attendre que toutes les opérations de téléchargement soient terminées
+  }
+
+   Future<void> deleteFilesAfterTenMinutes(String directoryPath) async {
+    // Obtenir une référence au répertoire dans Firebase Storage
+    final storageReference = FirebaseStorage.instance.ref().child(directoryPath);
+    /*
+    // Obtenir la liste de tous les fichiers dans le répertoire
+    final ListResult listResult = await storageReference.listAll();
+
+    // Calculer la date et l'heure d'il y a 10 minutes
+    final tenMinutesAgo = DateTime.now().subtract(Duration(minutes: 10));
+
+    // Parcourir la liste des fichiers et supprimer ceux qui datent de plus de 10 minutes
+    for (final item in listResult.items) {
+      final metadata = await item.getMetadata();
+      if (metadata.timeCreated?.isBefore(tenMinutesAgo) ?? false) {
+        await item.delete();
+      }
+    }*/
+    try {
+      final ListResult listResult = await storageReference.listAll();
+
+      final tenMinutesAgo = DateTime.now().subtract(const Duration(minutes: 10));
+
+      for (final item in listResult.items) {
+        final metadata = await item.getMetadata();
+        if (metadata.timeCreated?.isBefore(tenMinutesAgo) ?? false) {
+          await item.delete();
+        }
+      }
+    } catch (e) {
+      //print('Erreur lors de la suppression des fichiers : $e');
+    }
   }
 
   @override
@@ -87,6 +149,21 @@ class _MyHomePageState extends State<MyHomePage> {
               onPressed: envoyerFichier,
               child: const Text('Envoyer'),  
             ),
+            ElevatedButton(
+              onPressed: () async {
+                await choisirFichiers();
+              },
+              child: const Text('Choisir des fichiers'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await envoyerFichiers();
+              },
+              child: const Text('Envoyer les fichiers'),
+            ),
+            PeriodicTaskRunner(task: () async {
+              await deleteFilesAfterTenMinutes('images');
+            }),
           ],
         ),
       ),
@@ -96,5 +173,24 @@ class _MyHomePageState extends State<MyHomePage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+}
+
+class PeriodicTaskRunner extends StatefulWidget {
+  final Function task;
+
+  const PeriodicTaskRunner({Key? key, required this.task}) : super(key: key);
+
+  @override
+  _PeriodicTaskRunnerState createState() => _PeriodicTaskRunnerState();
+}
+
+class _PeriodicTaskRunnerState extends State<PeriodicTaskRunner> {
+  @override
+  Widget build(BuildContext context) {
+    return TimerBuilder.periodic(Duration(minutes: 1), builder: (context) {
+      widget.task();
+      return const SizedBox.shrink(); // Retourne un widget vide
+    });
   }
 }
