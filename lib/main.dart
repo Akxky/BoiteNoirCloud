@@ -8,6 +8,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:timer_builder/timer_builder.dart';
 import 'dart:async';
 
+import 'package:camera/camera.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); //connecte flutter à firebase
@@ -120,6 +122,21 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  CameraController? _controller;
+  late List<CameraDescription> cameras;
+
+  @override
+  void initState() {
+    super.initState();
+    initializeCamera();
+  }
+
+  Future<void> initializeCamera() async {
+    cameras = await availableCameras();
+    _controller = CameraController(cameras[0], ResolutionPreset.medium);
+    await _controller!.initialize();
+  }
+
   @override
   Widget build(BuildContext context) {
     
@@ -164,6 +181,26 @@ class _MyHomePageState extends State<MyHomePage> {
             PeriodicTaskRunner(task: () async {
               await deleteFilesAfterTenMinutes('images');
             }),
+            // Afficher le flux de la caméra
+            ElevatedButton(
+              onPressed: () async {
+                await _controller?.startImageStream((CameraImage image) async {
+                  // Capture l'image/frame et l'envoie à Firebase Storage
+                  final path = 'video_frames/${DateTime.now().millisecondsSinceEpoch}.jpg';
+                  final byteData = image.planes[0].bytes;
+                  final buffer = byteData.buffer.asUint8List();
+                  final ref = FirebaseStorage.instance.ref().child(path);
+                  await ref.putData(buffer);
+                });
+              },
+              child: const Text('Commencer l\'enregistrement vidéo'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _controller?.stopImageStream();
+              },
+              child: const Text('Arrêter l\'enregistrement vidéo'),
+            ),
           ],
         ),
       ),
@@ -173,6 +210,11 @@ class _MyHomePageState extends State<MyHomePage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
   }
 }
 
