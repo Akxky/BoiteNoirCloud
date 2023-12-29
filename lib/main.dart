@@ -113,8 +113,6 @@ class _MyHomePageState extends State<MyHomePage> {
 // #region envoyer une vidéo en directe
   CameraController? _controller;
   late List<CameraDescription> cameras;
-  // TODO:Pour capturer des images en continu, utilisez la fonction startImageStream avec un ImageStreamController 
-  //ImageStreamController<List<Uint8List>> streamController = ImageStreamController();
   late StreamController<List<Uint8List>> _imageStreamController;
 
   @override
@@ -134,7 +132,6 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> initializeCamera() async {
     cameras = await availableCameras();
     _controller = CameraController(cameras[0], ResolutionPreset.medium);
-    //_controller!.setMaxImageBufferSize(2); // TODO : Jouez sur ce paramètre peut-être
     await _controller!.initialize();
   }
 // #endregion
