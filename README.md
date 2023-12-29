@@ -1,16 +1,14 @@
 # boite_noire_cloud
 
-A new Flutter project.
+Application mobile inspirée par le principe d'une boîte noire et développé avec FLutter/dart et Firebase.
 
-## Getting Started
+## Fonctionnalités
+- Envoi d'une ou plusieurs images/vidéos à Firebase en même temps
+- Gestion automatique de l'espace de stockage en supprimant les contenus anciens (après 10 min)
+- Envoi d'une vidéo en direct par frames (pas entièrement fonctionnelle)
 
-This project is a starting point for a Flutter application.
+## Vidéo de l'application
+(vidéo à ajouter)
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Code de l'application
+fichier : lib/main.dart
