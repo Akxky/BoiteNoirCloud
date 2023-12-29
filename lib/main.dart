@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
-//import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
-
 import 'package:timer_builder/timer_builder.dart';
 import 'dart:async';
-
 import 'package:camera/camera.dart';
+import 'dart:typed_data';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +23,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'FlutterFirebase Demo',
       theme: ThemeData(
-        
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -44,27 +41,30 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
+// #region un fichier
   PlatformFile? fichierChoisi;
+
   Future choisirFichier() async {
     final result = await FilePicker.platform.pickFiles();
     if(result == null) return;
 
-    setState((){
+    setState(() {
       fichierChoisi = result.files.first;
     });
   }
 
   Future envoyerFichier() async {
-    final path = 'images/${fichierChoisi!.name}';
+    final path = 'fichiers/${fichierChoisi!.name}';
     final fichier = File(fichierChoisi!.path!);
 
     final ref = FirebaseStorage.instance.ref().child(path);
     await ref.putFile(fichier);
   }
+// #endregion
 
-  List<PlatformFile> fichiersChoisis = []; // Nouveau
-  // Nouveau
+// #region Plusieurs fichiers 
+  List<PlatformFile> fichiersChoisis = [];
+
   Future<void> choisirFichiers() async {
     final result = await FilePicker.platform.pickFiles(allowMultiple: true);
     if (result == null) return;
@@ -79,7 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<Future<void>> futures = [];
 
   for (final fichier in fichiersChoisis) {
-    final path = 'images/${fichier.name}';
+    final path = 'fichiers/${fichier.name}';
     final fichierAEnvoyer = File(fichier.path!);
 
     final ref = FirebaseStorage.instance.ref().child(path);
@@ -88,24 +88,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     await Future.wait(futures); // Attendre que toutes les opérations de téléchargement soient terminées
   }
+// #endregion
 
+// #region Effacer les fichiers
    Future<void> deleteFilesAfterTenMinutes(String directoryPath) async {
-    // Obtenir une référence au répertoire dans Firebase Storage
     final storageReference = FirebaseStorage.instance.ref().child(directoryPath);
-    /*
-    // Obtenir la liste de tous les fichiers dans le répertoire
-    final ListResult listResult = await storageReference.listAll();
-
-    // Calculer la date et l'heure d'il y a 10 minutes
-    final tenMinutesAgo = DateTime.now().subtract(Duration(minutes: 10));
-
-    // Parcourir la liste des fichiers et supprimer ceux qui datent de plus de 10 minutes
-    for (final item in listResult.items) {
-      final metadata = await item.getMetadata();
-      if (metadata.timeCreated?.isBefore(tenMinutesAgo) ?? false) {
-        await item.delete();
-      }
-    }*/
     try {
       final ListResult listResult = await storageReference.listAll();
 
@@ -121,25 +108,39 @@ class _MyHomePageState extends State<MyHomePage> {
       //print('Erreur lors de la suppression des fichiers : $e');
     }
   }
+// #endregion
 
+// #region envoyer une vidéo en directe
   CameraController? _controller;
   late List<CameraDescription> cameras;
+  // TODO:Pour capturer des images en continu, utilisez la fonction startImageStream avec un ImageStreamController 
+  //ImageStreamController<List<Uint8List>> streamController = ImageStreamController();
+  late StreamController<List<Uint8List>> _imageStreamController;
 
   @override
   void initState() {
     super.initState();
+    _imageStreamController = StreamController<List<Uint8List>>();
     initializeCamera();
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    _imageStreamController.close();
+    super.dispose();
   }
 
   Future<void> initializeCamera() async {
     cameras = await availableCameras();
     _controller = CameraController(cameras[0], ResolutionPreset.medium);
+    //_controller!.setMaxImageBufferSize(2); // TODO : Jouez sur ce paramètre peut-être
     await _controller!.initialize();
   }
+// #endregion
 
   @override
   Widget build(BuildContext context) {
-    
     return Scaffold(
       appBar: AppBar(   
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -179,7 +180,10 @@ class _MyHomePageState extends State<MyHomePage> {
               child: const Text('Envoyer les fichiers'),
             ),
             PeriodicTaskRunner(task: () async {
-              await deleteFilesAfterTenMinutes('images');
+              await deleteFilesAfterTenMinutes('fichiers');
+            }),
+            PeriodicTaskRunner(task: () async {
+              await deleteFilesAfterTenMinutes('video_frames');
             }),
             // Afficher le flux de la caméra
             ElevatedButton(
@@ -189,6 +193,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   final path = 'video_frames/${DateTime.now().millisecondsSinceEpoch}.jpg';
                   final byteData = image.planes[0].bytes;
                   final buffer = byteData.buffer.asUint8List();
+
+                  _imageStreamController.add([buffer]); // Ajout de la frame au flux
+
                   final ref = FirebaseStorage.instance.ref().child(path);
                   await ref.putData(buffer);
                 });
@@ -201,20 +208,21 @@ class _MyHomePageState extends State<MyHomePage> {
               },
               child: const Text('Arrêter l\'enregistrement vidéo'),
             ),
+            // Affichage du flux de la caméra
+            StreamBuilder<List<Uint8List>>(
+              stream: _imageStreamController.stream,
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return Image.memory(snapshot.data!.first);
+                } else {
+                  return const SizedBox.shrink();
+                }
+              },
+            ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: choisirFichier,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
+      ),     
     );
-  }
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
   }
 }
 
