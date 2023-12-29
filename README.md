@@ -8,7 +8,9 @@ Application mobile inspirée par le principe d'une boîte noire et développé a
 - Envoi d'une vidéo en direct par frames (pas entièrement fonctionnelle)
 
 ## Vidéo de l'application
-(vidéo à ajouter)
+
+https://github.com/Akxky/BoiteNoirCloud/assets/119169172/0d5bc69e-7f0c-4507-b7c8-3cc6819ddbbf
+
 
 ## Code de l'application
 fichier : lib/main.dart
